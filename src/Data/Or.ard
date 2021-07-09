@@ -10,4 +10,22 @@
       | inl a, inr b => absurd (e a b)
       | inr b, inl a => absurd (e a b)
       | inr b, inr b' => pmap inr (Path.inProp b b')
+
+    \func flip {A B : \Type} (x : Or A B) : Or B A
+      | inl a => inr a
+      | inr b => inl b
+
+    \func unify {A : \Type} (x : Or A A) : A
+      | inl a => a
+      | inr b => b
+  }
+
+\func FlipOr {A B : \Type} : Or A B = Or B A =>
+  path (iso flip flip flipTwice flipTwice)
+  \where {
+    \open Or (flip)
+
+    \func flipTwice {A B : \Type} (a : Or A B) : flip (flip a) = a
+      | inl a => idp
+      | inr b => idp
   }
