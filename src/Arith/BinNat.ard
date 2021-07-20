@@ -1,0 +1,91 @@
+\import Algebra.Ordered
+\import Arith.Nat
+\import Order.Lattice
+\import Order.LinearOrder
+\import Paths
+\import Function.Meta
+
+\data Pos | pos1 | x0 Pos | x1 Pos \where {
+  \open Nat
+
+  \func succ (p : Pos) : Pos
+    | pos1 => x0 pos1
+    | x0 p => x1 p
+    | x1 p => x0 (succ p)
+
+  \func nat=>pos (n : Nat) : Pos
+    | 0 => pos1
+    | suc n => succ (nat=>pos n)
+
+  \func pos=>nat (b : Pos) : Nat
+    | pos1 => 0
+    | x0 b => suc $ 2 * pos=>nat b
+    | x1 b => 2 * (suc $ pos=>nat b)
+
+  \lemma suc-nat=>pos=>nat (p : Pos) : pos=>nat (succ p) = suc (pos=>nat p)
+    | pos1 => idp
+    | x0 p => idp
+    | x1 p => pmap suc $ path (2 * suc-nat=>pos=>nat p @ __)
+
+  \func posInd (P : Pos -> \Type) (h1 : P pos1)
+               (hS : \Pi (p : Pos) -> P p -> P (succ p)) (p : Pos) : P p \elim p
+    | pos1 => h1
+    | x0 p => posInd (P $ x0 __) (hS pos1 h1) (H P hS) p
+    | x1 p => hS (x0 p) $ posInd (P $ x0 __) (hS pos1 h1) (H P hS) p
+    \where {
+      \func H (P : Pos -> \Type) (hS : \Pi (p : Pos) -> P p -> P (succ p))
+              (p : Pos) (hx0p : P (x0 p)) : P (x0 $ succ p) => hS (x1 p) $ hS (x0 p) hx0p
+    }
+
+  \lemma pos=>nat=>pos (x : Pos) : nat=>pos (pos=>nat x) = x =>
+    posInd (\lam x => nat=>pos (pos=>nat x) = x) idp lemma x \where {
+    \lemma lemma (p : Pos) (h : nat=>pos (pos=>nat p) = p) : nat=>pos (pos=>nat $ succ p) = succ p =>
+      nat=>pos (pos=>nat $ succ p) ==< pmap nat=>pos (suc-nat=>pos=>nat p) >==
+      succ (nat=>pos $ pos=>nat p) ==< pmap succ h                         >==
+      succ p `qed
+  }
+
+  \lemma nat=>pos=>nat (x : Nat) : pos=>nat (nat=>pos x) = x
+    | 0 => idp
+    | suc x =>
+      pos=>nat (nat=>pos $ suc x) ==< suc-nat=>pos=>nat (nat=>pos x) >==
+      suc (pos=>nat $ nat=>pos x) ==< pmap suc (nat=>pos=>nat x)     >==
+      suc x `qed
+}
+
+\data BinNat | zero | binPos Pos \where {
+  \func toNat (b : BinNat) : Nat
+    | zero => 0
+    | binPos p => suc (Pos.pos=>nat p)
+
+  \func fromNat (n : Nat) : BinNat
+    | 0 => zero
+    | suc n => binPos (Pos.nat=>pos n)
+
+  \lemma nat->bin->nat (x : Nat) : toNat (fromNat x) = x
+    | 0 => idp
+    | suc x => pmap suc $ Pos.nat=>pos=>nat x
+
+  \lemma bin->nat->bin (x : BinNat) : fromNat (toNat x) = x
+    | zero => idp
+    | binPos p => pmap binPos $ Pos.pos=>nat=>pos p
+
+  \func Nat=Bin => iso fromNat toNat nat->bin->nat bin->nat->bin
+
+  \func Nat=Bin2 (i : I) => \Pi (a b : Nat=Bin i) -> Nat=Bin i
+
+  \func div => coe Nat=Bin2 Nat.div right
+
+  \func mod => coe Nat=Bin2 Nat.mod right
+
+  \func \infixl 6 - => coe (\Pi (a b : Nat=Bin __) -> Int) (Nat.-) right
+
+  \func LE => coe (\Pi (a b : Nat=Bin __) -> \Prop) (Nat.<=)
+}
+
+\func Nat=Bin : Nat = BinNat => path BinNat.Nat=Bin
+
+\instance BinNatLE : TotalOrder BinNat => transport (TotalOrder __) Nat=Bin NatLE
+
+\instance BinNatSemiring : LinearlyOrderedCSemiring.Dec.Impl BinNat =>
+  transport (LinearlyOrderedCSemiring.Dec.Impl __) Nat=Bin NatSemiring
